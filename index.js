@@ -278,6 +278,7 @@ class WebTorrent extends EventEmitter {
    * @param {function=} ontorrent called when the torrent is ready (has metadata)
    */
   add (torrentId, opts = {}, ontorrent = () => {}) {
+    console.log('add:', torrentId, opts)
     if (this.destroyed) throw new Error('client is destroyed')
     if (typeof opts === 'function') [opts, ontorrent] = [{}, opts]
 
@@ -407,6 +408,55 @@ class WebTorrent extends EventEmitter {
         })
       })
     })
+
+    return torrent
+  }
+
+  pieceSeed (input, torrentId, opts, ontorrent, onseed) {
+    if (this.destroyed) throw new Error('client is destroyed')
+    if (typeof opts === 'function') [opts, onseed] = [{}, opts]
+
+    this._debug('pieceSeed')
+    opts = opts ? Object.assign({}, opts) : {}
+
+    // no need to verify the hashes we create
+    opts.skipVerify = true
+
+    const isFilePath = typeof input === 'string'
+
+    // When seeding from fs path, initialize store from that path to avoid a copy
+    if (isFilePath) opts.path = path.dirname(input)
+
+    const onTorrent = torrent => {
+      const tasks = [
+        cb => {
+          // when a filesystem path is specified or the store is preloaded, files are already in the FS store
+          if (isFilePath || opts.preloadedStore) return cb()
+          torrent.load(streams, cb)
+        }
+      ]
+      if (this.dht) {
+        tasks.push(cb => {
+          torrent.once('dhtAnnounce', cb)
+        })
+      }
+      parallel(tasks, err => {
+        if (this.destroyed) return
+        if (err) return torrent._destroy(err)
+        _onseed(torrent)
+      })
+    }
+
+    const _onseed = torrent => {
+      this._debug('on seed')
+      if (typeof onseed === 'function') onseed(torrent)
+      torrent.emit('seed')
+      this.emit('seed', torrent)
+    }
+
+    const torrent = this.add(null, opts, onTorrent)
+    if (typeof ontorrent === 'function') ontorrent(torrent)
+    torrent._onTorrentId(torrentId)
 
     return torrent
   }
