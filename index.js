@@ -278,7 +278,7 @@ class WebTorrent extends EventEmitter {
    * @param {function=} ontorrent called when the torrent is ready (has metadata)
    */
   add (torrentId, opts = {}, ontorrent = () => {}) {
-    console.log('add:', torrentId, opts)
+    console.log('add:', typeof torrentId, opts)
     if (this.destroyed) throw new Error('client is destroyed')
     if (typeof opts === 'function') [opts, ontorrent] = [{}, opts]
 
