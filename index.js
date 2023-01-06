@@ -424,14 +424,17 @@ class WebTorrent extends EventEmitter {
     const isFilePath = typeof input === 'string'
 
     // When seeding from fs path, initialize store from that path to avoid a copy
-    if (isFilePath) opts.path = path.dirname(input)
+    if (isFilePath) {
+      opts.path = path.dirname(input)
+      opts.pieceSeedPath = path.basename(input)
+    } else if (Array.isArray(input)) {
+      opts.pieceSeedPath = input
+    }
 
     const onTorrent = torrent => {
       const tasks = [
         cb => {
-          // when a filesystem path is specified or the store is preloaded, files are already in the FS store
-          if (isFilePath || opts.preloadedStore) return cb()
-          torrent.load(streams, cb)
+          return cb()
         }
       ]
       if (this.dht) {
